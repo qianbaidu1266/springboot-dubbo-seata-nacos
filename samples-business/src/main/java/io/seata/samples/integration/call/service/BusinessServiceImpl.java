@@ -1,6 +1,6 @@
 package io.seata.samples.integration.call.service;
 
-import io.seata.core.context.RootContext;
+import org.apache.seata.core.context.RootContext;
 import io.seata.samples.integration.common.dto.BusinessDTO;
 import io.seata.samples.integration.common.dto.CommodityDTO;
 import io.seata.samples.integration.common.dto.OrderDTO;
@@ -9,7 +9,7 @@ import io.seata.samples.integration.common.dubbo.StorageDubboService;
 import io.seata.samples.integration.common.enums.RspStatusEnum;
 import io.seata.samples.integration.common.exception.DefaultException;
 import io.seata.samples.integration.common.response.ObjectResponse;
-import io.seata.spring.annotation.GlobalTransactional;
+import org.apache.seata.spring.annotation.GlobalTransactional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.dubbo.config.annotation.DubboReference;
 import org.springframework.stereotype.Service;

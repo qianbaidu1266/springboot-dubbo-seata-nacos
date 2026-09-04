@@ -3,10 +3,10 @@ server:
 #====================================stream =============================================
 spring:
   datasource:
-    driver-class-name: com.mysql.jdbc.Driver
-    url: jdbc:mysql://127.0.0.1:3306/seata?useSSL=false&useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3306/seata_demo?useSSL=false&useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true&allowPublicKeyRetrieval=true
     username: root
-    password: 123456
+    password: root
   application:
     name: dubbo-account-example
 
@@ -23,12 +23,12 @@ dubbo:
     port: 20883
   registry:
     id: dubbo-account-example-registry
-    address: nacos://127.0.0.1:8848?namespace=40508bb4-179e-4c98-a2f1-c2c031c20b3c
+    address: nacos://127.0.0.1:8848
     version: 1.0.0
   config-center:
-    address: nacos://127.0.0.1:8848?namespace=40508bb4-179e-4c98-a2f1-c2c031c20b3c
+    address: nacos://127.0.0.1:8848
   metadata-report:
-    address: nacos://127.0.0.1:8848?namespace=40508bb4-179e-4c98-a2f1-c2c031c20b3c
+    address: nacos://127.0.0.1:8848
 #====================================mybatis-plus config===============================================
 mybatis-plus:
   mapper-locations: classpath*:/mapper/*.xml
@@ -51,13 +51,15 @@ seata:
     type: nacos
     nacos:
       server-addr: localhost:8848
-      namespace: 40508bb4-179e-4c98-a2f1-c2c031c20b3c
+      namespace: ""
       cluster: default
+      group: SEATA_GROUP
   config:
     type: nacos
     nacos:
-      namespace: 40508bb4-179e-4c98-a2f1-c2c031c20b3c
+      namespace: ""
       server-addr: localhost:8848
       group: SEATA_GROUP
   enable-auto-data-source-proxy: true
   data-source-proxy-mode: AT
+

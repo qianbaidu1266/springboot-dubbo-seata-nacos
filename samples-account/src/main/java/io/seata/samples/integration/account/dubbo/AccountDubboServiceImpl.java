@@ -1,6 +1,6 @@
 package io.seata.samples.integration.account.dubbo;
 
-import io.seata.core.context.RootContext;
+import org.apache.seata.core.context.RootContext;
 import io.seata.samples.integration.account.service.ITAccountService;
 import io.seata.samples.integration.common.dto.AccountDTO;
 import io.seata.samples.integration.common.dubbo.AccountDubboService;

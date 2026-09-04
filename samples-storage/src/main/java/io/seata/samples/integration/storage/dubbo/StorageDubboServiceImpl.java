@@ -1,7 +1,7 @@
 package io.seata.samples.integration.storage.dubbo;
 
 
-import io.seata.core.context.RootContext;
+import org.apache.seata.core.context.RootContext;
 import io.seata.samples.integration.common.dto.CommodityDTO;
 import io.seata.samples.integration.common.dubbo.StorageDubboService;
 import io.seata.samples.integration.common.response.ObjectResponse;

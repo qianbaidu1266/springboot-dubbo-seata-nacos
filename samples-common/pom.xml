@@ -25,7 +25,7 @@
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
     <artifactId>samples-common</artifactId>
-    <name>samples-commom</name>
+    <name>samples-common</name>
     <version>1.0.0</version>
     <dependencies>
         <dependency>

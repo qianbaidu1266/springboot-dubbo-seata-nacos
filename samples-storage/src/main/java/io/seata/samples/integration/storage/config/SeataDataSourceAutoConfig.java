@@ -2,7 +2,6 @@ package io.seata.samples.integration.storage.config;
 
 import com.alibaba.druid.pool.DruidDataSource;
 
-import io.seata.rm.datasource.DataSourceProxy;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.mybatis.spring.SqlSessionFactoryBean;
 import org.springframework.beans.factory.annotation.Autowired;

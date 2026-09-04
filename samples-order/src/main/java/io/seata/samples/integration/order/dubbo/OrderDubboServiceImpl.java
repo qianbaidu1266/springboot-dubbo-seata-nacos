@@ -1,6 +1,6 @@
 package io.seata.samples.integration.order.dubbo;
 
-import io.seata.core.context.RootContext;
+import org.apache.seata.core.context.RootContext;
 import io.seata.samples.integration.common.dto.OrderDTO;
 import io.seata.samples.integration.common.dubbo.OrderDubboService;
 import io.seata.samples.integration.common.response.ObjectResponse;

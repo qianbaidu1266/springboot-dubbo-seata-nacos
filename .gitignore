@@ -1,0 +1,10 @@
+/samples-storage/target/
+/samples-order/target/
+/samples-common/target/
+/samples-business/target/
+/samples-account/target/
+/.idea/compiler.xml
+/.idea/encodings.xml
+/.idea/vcs.xml
+/.idea/misc.xml
+/.idea/jarRepositories.xml
