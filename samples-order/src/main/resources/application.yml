@@ -28,10 +28,19 @@ dubbo:
     address: nacos://127.0.0.1:8848
   metadata-report:
     address: nacos://127.0.0.1:8848
+  # ---- tag 隔离：本环境实例统一打同一个 tag，避免与不同 tag 的服务互相干扰 ----
+  # provider.tag -> provider URL 的 dubbo.tag 参数；consumer.tag -> consumer URL 的 dubbo.tag
+  # 注意：两者必须成对配置，否则未打标的一方看不到已打标的提供者（No provider available）
+  provider:
+    tag: dev
   consumer:
+    tag: dev
     timeout: 600000
     retries: 0
     provided-by: dubbo-account-example
+    parameters:
+      # 找不到同 tag 的提供者时直接失败，不回退到未打标的实例（严格隔离）
+      "[dubbo.force.tag]": "true"
 
 #====================================mybatis-plus config===============================================
 mybatis-plus:
