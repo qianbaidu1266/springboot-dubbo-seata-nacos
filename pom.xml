@@ -31,9 +31,25 @@
         <mybatis-plus.version>2.3</mybatis-plus.version>
         <nacos.version>2.4.3</nacos.version>
         <lombok.version>1.18.34</lombok.version>
-        <dubbo.version>2.7.13</dubbo.version>
-                <seata.version>2.6.0</seata.version>
-        <netty.version>4.1.42.Final</netty.version>
+        <!-- Dubbo 由 2.7.13 升级至 3.3.6（3.x 分支，标签路由 TagRouter -> TagStateRouter） -->
+        <dubbo.version>3.3.6</dubbo.version>
+        <seata.version>2.6.0</seata.version>
+        <!--
+          netty 版本取的是 Dubbo 3.3.6 与 Seata 2.6.0 的“安全交集”：
+          - Dubbo 3.3.6 官方声明 netty-all 4.2.2.Final
+          - Seata 2.6.0 声明 netty-all 4.1.101.Final
+          实测 Dubbo 3.3.6 未引用任何 netty 4.2 独有 API（IoHandler / MultiThreadIoEventLoopGroup 等），
+          故统一取 4.1.101，Dubbo 侧兼容、Seata 侧零风险。
+          注意：netty-all 自 4.1.91 起已改为“空壳聚合器”（只声明各 netty-* 子模块依赖），
+          这里显式声明它可把全部子模块钉在同一版本；4.1.42 那种“胖包”会与子模块产生重复类，务必不要再钉回去。
+        -->
+        <netty.version>4.1.101.Final</netty.version>
+        <!--
+          Seata XID 跨 Dubbo 调用透传靠 org.apache.dubbo.extensions:dubbo-filter-seata。
+          seata-all 2.6.0 传递引入的是 1.0.2（内部引用 io.seata.* 老包名，依赖 Seata 2.x 的兼容层）；
+          这里显式覆盖为 3.3.1 —— 它引用的是 org.apache.seata.* 新包名，与 Seata 2.6.0 原生对齐。
+        -->
+        <dubbo-filter-seata.version>3.3.1</dubbo-filter-seata.version>
     </properties>
 
     <dependencies>
@@ -73,33 +89,27 @@
             <version>${mybatis-plus.version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.dubbo</groupId>
-            <artifactId>dubbo</artifactId>
-            <version>${dubbo.version}</version>
-            <exclusions>
-                <exclusion>
-                    <artifactId>spring</artifactId>
-                    <groupId>org.springframework</groupId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+        <!--
+          Dubbo 3 依赖收敛：
+          dubbo-spring-boot-starter -> dubbo-spring-boot-autoconfigure -> dubbo（all-in-one 聚合包，
+          已内含 dubbo-config-spring / dubbo-cluster / dubbo-configcenter-nacos / dubbo-metadata-report-nacos 等），
+          所以原来单独声明的 dubbo、dubbo-config-spring 都属于重复声明，已移除。
+        -->
         <dependency>
             <groupId>org.apache.dubbo</groupId>
             <artifactId>dubbo-spring-boot-starter</artifactId>
-            <version>${dubbo.version}</version>
-        </dependency>
-
-        <!-- https://mvnrepository.com/artifact/org.apache.dubbo/dubbo-config-spring -->
-        <dependency>
-            <groupId>org.apache.dubbo</groupId>
-            <artifactId>dubbo-config-spring</artifactId>
             <version>${dubbo.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.dubbo</groupId>
             <artifactId>dubbo-registry-nacos</artifactId>
             <version>${dubbo.version}</version>
+        </dependency>
+        <!-- Dubbo 3 专用的 Seata 事务透传 filter（显式覆盖 seata-all 传递引入的 1.0.2） -->
+        <dependency>
+            <groupId>org.apache.dubbo.extensions</groupId>
+            <artifactId>dubbo-filter-seata</artifactId>
+            <version>${dubbo-filter-seata.version}</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.apache.seata/seata-all -->
@@ -134,11 +144,9 @@
             <artifactId>netty-all</artifactId>
             <version>${netty.version}</version>
         </dependency>
-        <dependency>
-            <groupId>com.alibaba.spring</groupId>
-            <artifactId>spring-context-support</artifactId>
-            <version>1.0.11</version>
-        </dependency>
+        <!-- 已移除 com.alibaba.spring:spring-context-support:1.0.11
+             它是 Dubbo 2.7 的遗留依赖（Dubbo 2.7 的 @EnableDubbo 配置绑定用的），
+             Dubbo 3 的 dubbo-config-spring 已自带同等能力，保留只会引入旧版 spring 相关类。 -->
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>

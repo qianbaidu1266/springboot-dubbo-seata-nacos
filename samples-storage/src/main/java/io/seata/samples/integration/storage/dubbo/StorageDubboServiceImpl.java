@@ -15,9 +15,9 @@ import org.springframework.beans.factory.annotation.Autowired;
  * @Description
  * @Date Created in 2019/1/23 16:13
  */
-@DubboService(version = "1.0.0",protocol = "${dubbo.protocol.id}",
-        application = "${dubbo.application.id}",registry = "${dubbo.registry.id}",
-        timeout = 3000)
+// Dubbo 3：application / registry / protocol 三个属性已是 deprecated 且被忽略，
+// 应用/协议/注册中心统一由 application.yml 的 dubbo.application / dubbo.protocol / dubbo.registry 提供
+@DubboService(version = "1.0.0", timeout = 3000)
 @Slf4j
 public class StorageDubboServiceImpl implements StorageDubboService {
 

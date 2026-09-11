@@ -12,7 +12,6 @@ import io.seata.samples.integration.common.response.ObjectResponse;
 import io.seata.samples.integration.order.entity.TOrder;
 import io.seata.samples.integration.order.mapper.TOrderMapper;
 import org.apache.dubbo.config.annotation.DubboReference;
-import org.apache.dubbo.config.annotation.Reference;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 

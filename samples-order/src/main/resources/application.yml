@@ -37,10 +37,12 @@ dubbo:
     tag: dev
     timeout: 600000
     retries: 0
-    provided-by: dubbo-account-example
     parameters:
       # 找不到同 tag 的提供者时直接失败，不回退到未打标的实例（严格隔离）
-      "[dubbo.force.tag]": "true"
+      # ⚠️ 必须写「点号」形式：Spring 惯用的 "[dubbo.force.tag]" 方括号写法在 Dubbo 3 里绑不进去
+      #    （parameters 定义在 AbstractMethodConfig 上，Dubbo 自己的绑定器不展开方括号 key），
+      #    实测只有点号形式才会落到消费端 URL 的 dubbo.force.tag 参数上。
+      dubbo.force.tag: "true"
 
 #====================================mybatis-plus config===============================================
 mybatis-plus:
