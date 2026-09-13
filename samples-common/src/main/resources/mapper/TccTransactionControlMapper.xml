@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.seata.samples.integration.common.mapper.TccTransactionControlMapper">
+
+    <!-- 分支状态查询：无记录返回 null，是"空回滚"的唯一判据 -->
+    <select id="selectStatus" resultType="java.lang.Integer">
+        select status
+          from tcc_transaction_control
+         where xid = #{xid}
+           and branch_id = #{branchId}
+    </select>
+
+    <!-- 插入分支记录：主键 (xid, branch_id)，重复插入会抛唯一键冲突 -->
+    <insert id="insertControl">
+        insert into tcc_transaction_control
+            (xid, branch_id, action_name, status, gmt_create, gmt_modified)
+        values
+            (#{xid}, #{branchId}, #{actionName}, #{status}, now(), now())
+    </insert>
+
+    <!-- 带前置状态的状态流转：影响行数 0 表示已被并发改过 -->
+    <update id="updateStatus">
+        update tcc_transaction_control
+           set status = #{toStatus},
+               gmt_modified = now()
+         where xid = #{xid}
+           and branch_id = #{branchId}
+           and status = #{fromStatus}
+    </update>
+
+</mapper>

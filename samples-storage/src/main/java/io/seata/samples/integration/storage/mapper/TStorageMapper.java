@@ -20,4 +20,22 @@ public interface TStorageMapper extends BaseMapper<TStorage> {
      * @Return:
      */
     int decreaseStorage(@Param("commodityCode") String commodityCode, @Param("count") Integer count);
+
+    // ==================== 以下为 TCC 模式新增 ====================
+
+    /**
+     * Try：冻结（预留）库存。
+     * WHERE 里带可用量校验，可用量 = count - frozen，不足时影响行数为 0，Try 据此失败。
+     */
+    int freezeStorage(@Param("commodityCode") String commodityCode, @Param("count") Integer count);
+
+    /**
+     * Confirm：真正扣减库存并释放冻结额度
+     */
+    int confirmFreeze(@Param("commodityCode") String commodityCode, @Param("count") Integer count);
+
+    /**
+     * Cancel：释放冻结额度（不回滚 count，因为 Try 阶段根本没扣）
+     */
+    int releaseFreeze(@Param("commodityCode") String commodityCode, @Param("count") Integer count);
 }

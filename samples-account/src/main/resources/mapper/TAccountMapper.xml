@@ -10,14 +10,44 @@
         <id column="id" property="id" />
         <result column="user_id" property="userId" />
         <result column="amount" property="amount" />
+        <result column="frozen" property="frozen" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
     <sql id="Base_Column_List">
-        id, user_id, amount
+        id, user_id, amount, frozen
     </sql>
+
+    <!-- ==================== 直接扣减（控制器单服务自测入口） ==================== -->
     <update id="decreaseAccount">
-      update t_account set amount = amount-${amount} where user_id = #{userId}
+      update t_account set amount = amount-#{amount} where user_id = #{userId}
+    </update>
+
+    <!-- ==================== TCC：Try / Confirm / Cancel ==================== -->
+
+    <!-- Try：冻结金额。可用额 = amount - frozen，不足时影响行数为 0 -->
+    <update id="freezeAmount">
+        update t_account
+           set frozen = frozen + #{amount}
+         where user_id = #{userId}
+           and amount - frozen &gt;= #{amount}
+    </update>
+
+    <!-- Confirm：真正扣款，同时释放冻结额度 -->
+    <update id="confirmFreeze">
+        update t_account
+           set amount = amount - #{amount},
+               frozen = frozen - #{amount}
+         where user_id = #{userId}
+           and frozen &gt;= #{amount}
+    </update>
+
+    <!-- Cancel：解冻，amount 不动 -->
+    <update id="releaseFreeze">
+        update t_account
+           set frozen = frozen - #{amount}
+         where user_id = #{userId}
+           and frozen &gt;= #{amount}
     </update>
 
 </mapper>

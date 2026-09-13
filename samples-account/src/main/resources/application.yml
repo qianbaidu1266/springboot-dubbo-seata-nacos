@@ -4,7 +4,7 @@ server:
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://127.0.0.1:3306/seata_demo?useSSL=false&useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://127.0.0.1:3306/seata-demo-tcc?useSSL=false&useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true&allowPublicKeyRetrieval=true
     username: root
     password: root
   application:
@@ -73,6 +73,10 @@ seata:
       namespace: ""
       server-addr: localhost:8848
       group: SEATA_GROUP
-  enable-auto-data-source-proxy: true
-  data-source-proxy-mode: AT
+  # ---- TCC 模式：关闭 AT 数据源代理 ----
+  # 理由：ConnectionProxy.register() 在全局事务中会「无条件」按 BranchType.AT 注册分支并写 undo_log，
+  #      它并不感知当前线程是否已绑定 TCC 分支（seata-all 2.6.0 中 inTccBranch() 仅被 RootContext 自身引用）。
+  #      开着它，Try 里的 SQL 会被额外注册成一个 AT 分支 —— 回滚时 AT 的 undo 与 TCC 的 cancel 互相打架。
+  # TCC 的分支注册由 @LocalTCC + @TwoPhaseBusinessAction 的拦截器独立完成，与数据源代理无关。
+  enable-auto-data-source-proxy: false
 

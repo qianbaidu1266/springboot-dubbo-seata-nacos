@@ -11,15 +11,44 @@
         <result column="commodity_code" property="commodityCode" />
         <result column="name" property="name" />
         <result column="count" property="count" />
+        <result column="frozen" property="frozen" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
     <sql id="Base_Column_List">
-        id, commodity_code, name, count
+        id, commodity_code, name, count, frozen
     </sql>
 
+    <!-- ==================== 直接扣减（控制器单服务自测入口） ==================== -->
     <update id="decreaseStorage">
         update t_storage set count = count-${count} where commodity_code = #{commodityCode}
+    </update>
+
+    <!-- ==================== TCC：Try / Confirm / Cancel ==================== -->
+
+    <!-- Try：冻结库存。可用量 = count - frozen，不足时影响行数为 0 -->
+    <update id="freezeStorage">
+        update t_storage
+           set frozen = frozen + #{count}
+         where commodity_code = #{commodityCode}
+           and count - frozen &gt;= #{count}
+    </update>
+
+    <!-- Confirm：真正扣减，同时释放冻结额度 -->
+    <update id="confirmFreeze">
+        update t_storage
+           set count = count - #{count},
+               frozen = frozen - #{count}
+         where commodity_code = #{commodityCode}
+           and frozen &gt;= #{count}
+    </update>
+
+    <!-- Cancel：解冻，count 不动 -->
+    <update id="releaseFreeze">
+        update t_storage
+           set frozen = frozen - #{count}
+         where commodity_code = #{commodityCode}
+           and frozen &gt;= #{count}
     </update>
 
 </mapper>

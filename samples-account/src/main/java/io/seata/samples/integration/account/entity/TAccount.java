@@ -23,6 +23,9 @@ public class TAccount extends Model<TAccount> {
     private String userId;
     private Double amount;
 
+    /** TCC 预留（冻结）金额，Try 加、Confirm/Cancel 减 */
+    private Double frozen;
+
 
     public Integer getId() {
         return id;
@@ -48,6 +51,14 @@ public class TAccount extends Model<TAccount> {
         this.amount = amount;
     }
 
+    public Double getFrozen() {
+        return frozen;
+    }
+
+    public void setFrozen(Double frozen) {
+        this.frozen = frozen;
+    }
+
     @Override
     protected Serializable pkVal() {
         return this.id;
@@ -59,6 +70,7 @@ public class TAccount extends Model<TAccount> {
         ", id=" + id +
         ", userId=" + userId +
         ", amount=" + amount +
+        ", frozen=" + frozen +
         "}";
     }
 }

@@ -24,6 +24,9 @@ public class TStorage extends Model<TStorage> {
     private String name;
     private Integer count;
 
+    /** TCC 预留（冻结）库存，Try 加、Confirm/Cancel 减 */
+    private Integer frozen;
+
 
     public Integer getId() {
         return id;
@@ -57,6 +60,14 @@ public class TStorage extends Model<TStorage> {
         this.count = count;
     }
 
+    public Integer getFrozen() {
+        return frozen;
+    }
+
+    public void setFrozen(Integer frozen) {
+        this.frozen = frozen;
+    }
+
     @Override
     protected Serializable pkVal() {
         return this.id;
@@ -69,6 +80,7 @@ public class TStorage extends Model<TStorage> {
         ", commodityCode=" + commodityCode +
         ", name=" + name +
         ", count=" + count +
+        ", frozen=" + frozen +
         "}";
     }
 }

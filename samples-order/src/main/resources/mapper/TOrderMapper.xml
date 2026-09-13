@@ -13,16 +13,44 @@
         <result column="commodity_code" property="commodityCode" />
         <result column="count" property="count" />
         <result column="amount" property="amount" />
+        <result column="status" property="status" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
     <sql id="Base_Column_List">
-        id, order_no, user_id, commodity_code, count, amount
+        id, order_no, user_id, commodity_code, count, amount, status
     </sql>
-    <!--创建订单-->
+
+    <!-- ==================== 直接建单（控制器单服务自测入口，不涉及全局事务 → 直接生效） ==================== -->
     <insert id="createOrder" keyProperty="id" useGeneratedKeys="true"
             parameterType="io.seata.samples.integration.order.entity.TOrder">
-      insert into t_order values(null,#{order.orderNo},#{order.userId},#{order.commodityCode},${order.count},${order.amount})
+      insert into t_order(order_no, user_id, commodity_code, count, amount, status)
+      values(#{order.orderNo},#{order.userId},#{order.commodityCode},${order.count},${order.amount},1)
     </insert>
+
+    <!-- ==================== TCC：Try / Confirm / Cancel ==================== -->
+
+    <!-- Try：占位订单，status=0(TRYING)；orderNo 唯一索引挡住重复 Try -->
+    <insert id="insertTryingOrder" keyProperty="id" useGeneratedKeys="true"
+            parameterType="io.seata.samples.integration.order.entity.TOrder">
+      insert into t_order(order_no, user_id, commodity_code, count, amount, status)
+      values(#{order.orderNo},#{order.userId},#{order.commodityCode},${order.count},${order.amount},0)
+    </insert>
+
+    <!-- Confirm：0(TRYING) → 1(CONFIRMED)，带前置状态条件，天然幂等 -->
+    <update id="confirmOrder">
+        update t_order
+           set status = 1
+         where order_no = #{orderNo}
+           and status = 0
+    </update>
+
+    <!-- Cancel：0(TRYING) → 2(CANCELED)，带前置状态条件，天然幂等 -->
+    <update id="cancelOrder">
+        update t_order
+           set status = 2
+         where order_no = #{orderNo}
+           and status = 0
+    </update>
 
 </mapper>

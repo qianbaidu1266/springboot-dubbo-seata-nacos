@@ -26,6 +26,9 @@ public class TOrder extends Model<TOrder> {
     private Integer count;
     private Double amount;
 
+    /** TCC 订单状态：0=TRYING(占位) 1=CONFIRMED(生效) 2=CANCELED(已取消) */
+    private Integer status;
+
 
     public Integer getId() {
         return id;
@@ -75,6 +78,14 @@ public class TOrder extends Model<TOrder> {
         this.amount = amount;
     }
 
+    public Integer getStatus() {
+        return status;
+    }
+
+    public void setStatus(Integer status) {
+        this.status = status;
+    }
+
     @Override
     protected Serializable pkVal() {
         return this.id;
@@ -89,6 +100,7 @@ public class TOrder extends Model<TOrder> {
         ", commodityCode=" + commodityCode +
         ", count=" + count +
         ", amount=" + amount +
+        ", status=" + status +
         "}";
     }
 }

@@ -8,3 +8,5 @@
 /.idea/vcs.xml
 /.idea/misc.xml
 /.idea/jarRepositories.xml
+# 本地数据库快照备份（只在本机留档，不入库）
+/.workbuddy/backup-*/

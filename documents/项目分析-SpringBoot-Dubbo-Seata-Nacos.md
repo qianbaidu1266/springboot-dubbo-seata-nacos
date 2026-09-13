@@ -5,8 +5,14 @@
 > 分析方法：以**工作区实际代码**为准（README.md 为网上搬运的历史版本说明，与当前代码存在版本脱节，详见 2.3 与 9.1）
 >
 > 一句话结论：这是一个 **「下单扣库存、建订单、扣账户」跨 4 个微服务的分布式事务教学示例**。
-> 应用间用 **Dubbo（Nacos 注册）** 做 RPC，业务门面用 **Seata（AT 模式，@GlobalTransactional）** 保证跨服务数据一致性，
+> 应用间用 **Dubbo（Nacos 注册）** 做 RPC，业务门面用 **Seata（`@GlobalTransactional`）** 保证跨服务数据一致性，
 > **Nacos 同时充当 Dubbo 与 Seata 的注册中心和配置中心**。
+>
+> ⚠️ **2026-09-11 更新：本项目已由 AT 模式整体改造为 TCC 模式并实测跑通。**
+> 本文正文（§2 目录树、§3 调用链、§6.2 时序等）描述的是 **AT 时期的接口结构**（`AccountDubboService` /
+> `OrderDubboService` / `StorageDubboService` 已被 TCC 的 `*TccAction` 取代，数据源代理已关闭，`undo_log` 不再写入）。
+> **改造后的结构与实测证据请看 [TCC改造说明与实测验证.md](./TCC改造说明与实测验证.md)。**
+> 下文所有涉及 Dubbo 接口名、`undo_log`、`DataSourceProxy` 的段落，都请按"AT 时期留档"来读。
 
 ---
 
@@ -81,7 +87,8 @@ springboot-dubbo-seata-nacos
 ├── README.md                  # 历史说明（与代码脱节，慎用）
 ├── test.http                  # 下单接口测试用例（正常 / 异常回滚）
 ├── sql/
-│   └── db-seata.sql           # 建库脚本：业务表 + undo_log + Seata Server 三表
+│   ├── seata-demo-tcc.sql     # 从零导入脚本（DROP/CREATE DATABASE + 业务表 + 控制表 + TC 三表 + 自检；共 7 张表，无 undo_log）
+│   └── db-seata.sql           # AT 时代旧建库脚本（自 git master 取回留档；含 undo_log，仅回退 AT 时参考）
 ├── documents/                 # 本分析文档
 ├── samples-common/            # 公共模块（Dubbo API 契约 + DTO + 通用返回）
 ├── samples-account/           # 账户服务（端口/配置见其 application.yml）
@@ -415,7 +422,7 @@ seata:
 | `seata-spring-boot-starter` | 自动完成：① 把每个数据源包装成 Seata `DataSourceProxy`（BeanPostProcessor 方式，无需手写）；② 自动装配全局事务扫描器，识别 `@GlobalTransactional` |
 | `SeataDataSourceAutoConfig`（代码保留类） | 只负责 Druid 数据源与 MyBatis `SqlSessionFactory` 的 Bean 化，**不再**手动创建 `DataSourceProxy` / `GlobalTransactionScanner`（升级后的正确姿势） |
 | `@GlobalTransactional` | 业务门面方法上声明全局事务（TM 开启/提交/回滚） |
-| 数据库 | 被管表所在库建 `undo_log`（AT 模式回滚日志） |
+| 数据库 | AT 模式下需在被管表所在库建 `undo_log`；**本项目已切 TCC，该表已删除** |
 
 account 模块的 `SeataDataSourceAutoConfig`：
 
@@ -488,7 +495,7 @@ order/storage 的 config 类仍残留 `import io.seata.spring.annotation.GlobalT
 
 ```text
 ① Nacos 启动（standalone）
-② 业务库初始化（db-seata.sql：业务表 + undo_log + Seata Server 三表）
+② 业务库初始化（`seata-demo-tcc.sql` 从零导入：业务表 + tcc_transaction_control + TC 三表；不想删库就注释掉它的 `DROP DATABASE` 行）
 ③ Seata Server 启动（db 模式）→ 向 Nacos 注册服务：serverAddr（cluster=default）
 ④ 4 个 SpringBoot 应用依次启动：
    ├─ 从 yml 读 Dubbo 配置 → Provider/接口元数据注册到 Nacos（registry/config-center/metadata-report）
@@ -563,30 +570,36 @@ Seata 1.4 内置了 **Dubbo 集成（seata-dubbo 自动生效于 starter 依赖�
 
 ---
 
-## 7. 数据模型与建库脚本（sql/db-seata.sql）
+## 7. 数据模型与建库脚本（sql/seata-demo-tcc.sql）
 
-### 7.1 业务表
+> **本节已按 TCC 改造后的结构更新**（2026-09-11）。库名 `seata-demo-tcc`，脚本自带 `DROP DATABASE` + `CREATE DATABASE`（utf8mb4 / utf8mb4_0900_ai_ci），可从零导入。
+> 想"不删库、只重建表"就把 `seata-demo-tcc.sql` 的 `DROP DATABASE` 那一行注释掉。同目录的 `db-seata.sql` 是 **AT 时代旧脚本（留档）**，别当 TCC 脚本用。
+> 2026-09-13 清理：增量升级脚本 `db-seata-tcc-upgrade.sql` 与 Navicat 脏快照 `seata_demo.sql` 已删除。
 
-| 表 | 字段 | 初始数据 | 说明 |
+### 7.1 业务表（TCC 三段式的落库载体）
+
+| 表 | 字段 | 初始数据 | TCC 语义 |
 |---|---|---|---|
-| t_account | id, user_id, amount | (1, '1', 4000.00) | 账户余额 |
-| t_order | id, order_no, user_id, commodity_code, count, amount | 空 | 订单（order_no 由 UUID 生成） |
-| t_storage | id, commodity_code(唯一), name, count | (1, 'C201901140001', '水杯', 1000) | 库存 |
+| t_account | id, user_id, amount, **frozen** | (1, '1', 4000.00, 0.00) | Try `frozen += amt` → Confirm `amount -= amt; frozen -= amt` → Cancel `frozen -= amt` |
+| t_storage | id, commodity_code(唯一), name, count, **frozen** | (1, 'C201901140001', '水杯', 1000, 0) | 同上，按库存数计 |
+| t_order | id, order_no(唯一), user_id, commodity_code, count, amount, **status** | 空 | Try 插入 `status=0` 占位单 → Confirm `0→1` → Cancel `0→2`（不物理删除） |
+
+**加粗列是 TCC 相比 AT 新增的**：`frozen` 承载"已预留、未落账"的中间态，`status` 承载订单的占位态 —— AT 靠数据库行锁挡并发，TCC 靠显式字段表达中间态。
 
 ### 7.2 Seata 相关表（脚本一并提供）
 
 | 表 | 归属 | 作用 |
 |---|---|---|
-| undo_log | 每个业务库（本示例在库 seata） | AT 模式回滚镜像（唯一键 ux_undo_log(xid, branch_id)；脚本为 1.4 结构：无自增 id、含 context 列） |
-| global_table | Seata Server（db 模式存储） | 全局事务状态 |
-| branch_table | Seata Server | 分支事务状态 |
-| lock_table | Seata Server | 全局行锁 |
+| tcc_transaction_control | 业务库 seata-demo-tcc（三个 RM 共用） | **TCC 核心表**：主键 `(xid, branch_id)`，status `1=TRIED / 2=CONFIRMED / 3=CANCELED`，承载幂等 / 空回滚 / 防悬挂 |
+| ~~undo_log~~ | ~~业务库 seata-demo-tcc~~ | AT 模式回滚镜像表；切 TCC 后没有任何代码路径读写它，**已从库与脚本中删除**（回退 AT 需自行重建） |
+| global_table / branch_table / lock_table | Seata Server 的 db 存储模式 | 全局/分支事务状态与全局行锁。**本 demo 的 TC 用 `store.mode=file`，这三张表不会被访问**，保留仅沿袭原示例（真要切 db 模式时，TC 配置里的 url 指向的是另一个库 `seata`） |
 
 ### 7.3 生产注意事项
 
-- 脚本 CHARSET=utf8（非 utf8mb4），若有 emoji/生僻字需求应改 utf8mb4。
+- 脚本 `DEFAULT CHARSET=utf8mb4`（2026-09-11 重建时由 utf8mb3 升级）；列定义省略了 `int(11)` 这类**显示宽度**（MySQL 8.0.17 起废弃），但 `double(14,2)` 的精度必须保留 —— 它约束的是实际小数位数。
 - `amount` 用 `double(14,2)`，精度敏感场景应改 `decimal`。
-- 演示把 3 业务表 + undo_log 放同一库；真实拆库后**每个库各自建 undo_log**，否则回滚报 `Table 'xxx.undo_log' doesn't exist`。
+- 演示把 3 业务表 + 控制表放同一库（TCC 已不需要 `undo_log`，脚本不再创建）；若将来回退 AT 成分，每个业务库各自都要建 `undo_log`，否则报 `Table 'xxx.undo_log' doesn't exist`。
+- 重建动作已实测：`mysql < sql/seata-demo-tcc.sql`（含 `DROP DATABASE`）→ **不重启 4 个业务服务** → `buy`/`buy2` 通过（连接池会自行重连同名新库）。
 
 ---
 
@@ -596,16 +609,16 @@ Seata 1.4 内置了 **Dubbo 集成（seata-dubbo 自动生效于 starter 依赖�
 
 | 组件 | 说明 |
 |---|---|
-| MySQL | 执行 sql/db-seata.sql（建库 seata：业务表 + undo_log + Seata Server 三表） |
-| Nacos Server | standalone 启动，并存在 namespace `40508bb4-179e-4c98-a2f1-c2c031c20b3c` |
-| Seata Server | db 模式（store.mode=db，连 MySQL 的 seata 库）；conf 中 registry/config 指 Nacos（同 namespace），启动后注册为 `serverAddr` |
+| MySQL | 执行 `sql/seata-demo-tcc.sql`（从零导入：`DROP DATABASE` + `CREATE DATABASE seata-demo-tcc` + 3 业务表 + tcc_transaction_control + TC 三表） |
+| Nacos Server | standalone 启动（本机实测走 **public** namespace，Dubbo 与 Seata 均注册在此） |
+| Seata Server | **file 模式**（启动参数 `-m file`，会话落在 `bin/sessionStore`；`conf/application.yml` 里虽有 db 段但 `store.mode: file` 生效）；conf 中 registry/config 指 Nacos，启动后注册为 `seata-server` |
 | Nacos 配置 | SEATA_GROUP 组下预置 `service.vgroup_mapping.<各服务tx-service-group>=default`（若缺失，客户端启动报 no available server to connect） |
 
 ### 8.2 启动顺序
 
 ```text
 1. 启动 Nacos（standalone）
-2. 初始化 MySQL：source sql/db-seata.sql
+2. 初始化 MySQL：`mysql -h127.0.0.1 -uroot -proot --default-character-set=utf8mb4 < sql/seata-demo-tcc.sql`
 3. 启动 Seata Server（注册进 Nacos）
 4. 依次启动 samples-account / samples-order / samples-storage / samples-business
 5. Nacos 控制台确认：4 个 dubbo 应用服务 + serverAddr 均已注册
@@ -632,7 +645,7 @@ Seata 1.4 内置了 **Dubbo 集成（seata-dubbo 自动生效于 starter 依赖�
 | 9.4 | Mapper XML 用 `${amount}` / `${count}` 字符串拼接，存在 SQL 注入与类型风险 | 3 个 Mapper.xml | 全部改 `#{}` 参数化 |
 | 9.5 | 版本偏老：Spring Boot 2.2.2 / JDK8 / mysql-connector 5.1.47 / Nacos client 1.3.0，README 时代组合 | pom.xml | 学习示例无碍；上生产应整体升级并核对 CVE |
 | 9.6 | namespace 硬编码 UUID，换环境（或改回 public）需同步 dubbo 3 处 + seata 2 处 + Seata Server conf | 各 yml / 服务端 | 抽取统一环境变量或配置中心管理 |
-| 9.7 | 三服务共库 + 单份 undo_log 是演示简化；拆库/拆实例后需每库建 undo_log | sql/ 部署 | 生产按"一服务一库"规划 |
+| 9.7 | 三服务共库是演示简化（TCC 已不需要 undo_log）；若回退 AT 成分，拆库后需每库建 undo_log | sql/ 部署 | 生产按"一服务一库"规划 |
 | 9.8 | Dubbo 服务间只返回状态码不抛异常，Seata 默认感知不到失败，必须门面层翻译为异常 | BusinessServiceImpl | 保持现状写法并注释说明原因 |
 | 9.9 | 状态判断用魔法数字 200/999 | RspStatusEnum 调用处 | 统一引用枚举常量 |
 | 9.10 | 注解里 `${dubbo.protocol.id}` 等占位符与 yml id 强耦合，改配置易漏 | 3 个 @DubboService | 显式 id 与占位符保持一致，或用 @EnableDubbo 默认规则简配 |
